@@ -7,6 +7,18 @@
 #include "CLI11.hpp"
 #include "md5.h"
 
+/*
+This program is a command line based Huffman compressor. It was created as a portfolio piece for the SMU Guildhall Fall 2022 application.
+It uses two external resources: md5.h (and its associated .cpp file) by Stephan Brumme https://create.stephan-brumme.com/ and CLI11, a command line parser https://github.com/CLIUtils/CLI11
+
+Commands:
+-d			Decompress
+-o			Overwrite
+-p, --path	Path for output
+
+*/
+
+
 struct FileVersion
 {
 	uint8_t major;
