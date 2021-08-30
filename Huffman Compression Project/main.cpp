@@ -160,7 +160,7 @@ void createPrefix(std::ifstream& input, unsigned int fileLen, huffman::Encoder& 
 	}
 }
 
-int writeHeader(std::ofstream& output, unsigned int fileLen, std::string filename, std::map<uint8_t, int> freqTable, MD5& md5)
+int writeHeader(std::ofstream& output, unsigned int fileLen, std::string filename, std::map<uint8_t, uint32_t> freqTable, MD5& md5)
 {
 	/*
 	Header format:
@@ -172,8 +172,8 @@ int writeHeader(std::ofstream& output, unsigned int fileLen, std::string filenam
 	42		4		compressed file size
 	46		1		filename length (n)
 	47		n		filename
-	47+n	1		freqTable size (f)
-	48+n	(1+4)*f freqTable
+	47+n	4		freqTable size (f)
+	51+n	(1+4)*f freqTable
 	*/
 
 	// Unique identifer and version number to prevent running the code on incorrectly formatted files when decompressing.
@@ -197,8 +197,9 @@ int writeHeader(std::ofstream& output, unsigned int fileLen, std::string filenam
 	output.write(filename.data(), filename.size());
 
 	// Write the size of the frequency table and the table for decompressing.
-	uint8_t tableSize = freqTable.size();
-	output.write(reinterpret_cast<char*>(&tableSize), sizeof(tableSize));
+	uint32_t tableSize = freqTable.size();
+	writeInt(output, tableSize);
+
 	for (auto& leaf : freqTable)
 	{
 		output.put(leaf.first);
@@ -266,14 +267,15 @@ void decompress(std::string filename, std::string path, bool overwriteFlag, bool
 	std::string outputName = path + header.filename;
 
 	//  Check if the file already exists to prevent overwriting.
-	std::ifstream tempStream(outputName);
-	if (tempStream.good())
+	if (!overwriteFlag)
 	{
-		if (!overwriteFlag)
+		std::ifstream tempStream(outputName);
+		if (tempStream.good())
 		{
 			std::cout << "File already exists. Add -o to command line to overwrite.\n";
 			return;
 		}
+		tempStream.close();
 	}
 
 	std::ofstream output(outputName, std::ios::binary);
@@ -341,30 +343,33 @@ Header readHeader(std::ifstream& input)
 	42		4		compressed file size
 	46		1		filename length (n)
 	47		n		filename
-	47+n	1		freqTable size (f)
-	48+n	f*5		freqTable
+	47+n	4		freqTable size (f)
+	51+n	(1+4)*f freqTable
 
 	The signature is read before this function is called. If the signature is not the expected characters the program is terminated.
 	*/
 
 	Header header;
 
+	// File Version
 	header.fileVersion.major = input.get();
 	header.fileVersion.minor = input.get();
 
+	// MD5 hash
 	header.hash.resize(32);
 	input.read(&header.hash[0], header.hash.size());
 
 	header.fileSize = readInt(input);
 	header.compressedSize = readInt(input);
 	
+	// Filename
 	uint8_t nameLen;
 	input.read(reinterpret_cast<char*>(&nameLen), sizeof(nameLen));
 	header.filename.resize(nameLen);
 	input.read(&header.filename[0], header.filename.size());
 
-	uint8_t freqTableSize = 0;
-	input.read(reinterpret_cast<char*>(&freqTableSize), sizeof(freqTableSize));
+	// Frequency table
+	uint32_t freqTableSize = readInt(input);
 
 	for (unsigned int i = 0; i < freqTableSize; i++)
 	{

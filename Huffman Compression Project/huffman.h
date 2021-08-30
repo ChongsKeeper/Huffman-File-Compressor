@@ -69,14 +69,14 @@ namespace huffman
 		uint8_t getBuffer();
 
 		// getter method for m_freqTable
-		const std::map<uint8_t, int> freqTable();
+		std::map<uint8_t, uint32_t> freqTable();
 
 		// getter method for m_compressedSize
-		const int compressedSize();
+		int compressedSize();
 
 	private:
 		// Table of the frequency with which each byte in the input occurs.
-		std::map<uint8_t, int> m_freqTable;
+		std::map<uint8_t, uint32_t> m_freqTable;
 
 		// The path to each leaf in the tree.
 		std::map<uint8_t, bitVector> m_binMap;
@@ -103,7 +103,7 @@ namespace huffman
 	class Decoder
 	{
 	public:
-		Decoder(std::map<uint8_t, int> freqTable, int fileLen);
+		Decoder(std::map<uint8_t, uint32_t> freqTable, int fileLen);
 
 		// Overwrites input string. Used to decode in chunks.
 		void decode(std::string& input);

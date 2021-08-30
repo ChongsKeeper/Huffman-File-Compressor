@@ -18,7 +18,7 @@ namespace huffman
 
 	namespace
 	{
-		std::shared_ptr<Node> buildTree(std::map<uint8_t, int> freqTable)
+		std::shared_ptr<Node> buildTree(std::map<uint8_t, uint32_t> freqTable)
 		{
 			std::vector<std::shared_ptr<Node> > nodes;
 
@@ -188,18 +188,18 @@ namespace huffman
 		return buffer;
 	}
 
-	const std::map<uint8_t, int> Encoder::freqTable()
+	std::map<uint8_t, uint32_t> Encoder::freqTable()
 	{
 		return m_freqTable;
 	}
 
-	const int Encoder::compressedSize()
+	int Encoder::compressedSize()
 	{
 		return m_compressedSize;
 	}
 
 
-	Decoder::Decoder(std::map<uint8_t, int> freqTable, int fileLen)
+	Decoder::Decoder(std::map<uint8_t, uint32_t> freqTable, int fileLen)
 		: m_hTree(buildTree(freqTable))
 		, m_curNode(m_hTree)
 		, m_curByte(0)

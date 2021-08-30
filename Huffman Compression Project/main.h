@@ -22,7 +22,7 @@ struct Header
 	int fileSize;
 	int compressedSize;
 	std::string filename;
-	std::map<uint8_t, int> freqTable;
+	std::map<uint8_t, uint32_t> freqTable;
 
 	Header()
 		: fileVersion{0, 0}
@@ -64,7 +64,7 @@ void compress(std::string filename, std::string path);
 void createPrefix(std::ifstream& input, unsigned int fileLen, huffman::Encoder& encoder, MD5& md5);
 
 // Takes all of the neccesary data for decompression and writes it to the ouput. Returns the offset for compressed size.
-int writeHeader(std::ofstream& output, unsigned int fileLen, std::string filename, std::map<uint8_t, int> freqTable, MD5& md5);
+int writeHeader(std::ofstream& output, unsigned int fileLen, std::string filename, std::map<uint8_t, uint32_t> freqTable, MD5& md5);
 
 // The actuall compression of the file.
 void encodeFile(std::ifstream& input, unsigned int fileLen, std::ofstream& output, huffman::Encoder& encoder);
@@ -80,6 +80,17 @@ bool checkSig(std::ifstream &filename);
 
 void listContents(std::string filename);
 
-// Integer functions for reading and writing to the file in Big Endian
+/*
+Endianess was an interesting issue to think about. Through research I found many ways of determining the order of bytes on local hardware and performing swaps
+to place it in the correct order for output, but these methods seemed overly complicated and difcult to implement in an elegant fashion.
+I settled on the method of handling endianess found in this article: https://commandcenter.blogspot.com/2012/04/byte-order-fallacy.html
+
+Essentially, local byte order doesn't matter. Bit shift operators will perform the same operation on an integer no matter what the local endianess is. Because of this,
+the only thing that matters is what is being written to or read from.
+
+These two functions use an array of uint8_ts to control the order the file is interacted with, converting
+local integers to big endian and vice versa, regardless of local architecture.
+*/
+
 bool writeInt(std::ofstream &output, uint32_t num);
 uint32_t readInt(std::ifstream& input);
