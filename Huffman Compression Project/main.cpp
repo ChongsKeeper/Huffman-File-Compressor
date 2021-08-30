@@ -138,6 +138,7 @@ void compress(std::string filename, std::string path)
 	auto compressedSize = encoder.compressedSize();
 	output.seekp(cmprSizeOffset, output.beg);
 	output.write(reinterpret_cast<char*>(&compressedSize), sizeof(compressedSize));
+	std::cout << "\n";
 }
 
 void createPrefix(std::ifstream& input, unsigned int fileLen, huffman::Encoder& encoder, MD5& md5)
@@ -265,8 +266,8 @@ void decompress(std::string filename, std::string path, bool overwriteFlag, bool
 	std::string outputName = path + header.filename;
 
 	//  Check if the file already exists to prevent overwriting.
-	std::ofstream output(outputName, std::ios::binary);
-	if (output.good())
+	std::ifstream tempStream(outputName);
+	if (tempStream.good())
 	{
 		if (!overwriteFlag)
 		{
@@ -274,8 +275,11 @@ void decompress(std::string filename, std::string path, bool overwriteFlag, bool
 			return;
 		}
 	}
-	else
+
+	std::ofstream output(outputName, std::ios::binary);
+	if (!output.good())
 	{
+		std::cerr << "Output file failed to create\n";
 		return;
 	}
 
@@ -307,7 +311,7 @@ void decompress(std::string filename, std::string path, bool overwriteFlag, bool
 		
 		if (keepFlag)
 		{
-			"Keeping bad file.\n";
+			std::cout << "Keeping bad file.\n";
 		}
 		else if (std::remove(outputName.c_str()))
 		{
@@ -399,7 +403,7 @@ void listContents(std::string filename)
 
 	std::cout << "Huffman Compression version: " << static_cast<unsigned int>(header.fileVersion.major) << "." << static_cast<unsigned int>(header.fileVersion.minor) << "\n"
 		      << "Original file name: " << header.filename << "\n"
-		      << "Original file size: " << (float)header.fileSize / 1000 << " KB" << "\n"
-		      << "Compressed file size: " << (float)header.compressedSize / 1000 << " KB" << "\n"
+		      << "Original file size: " << (float)header.fileSize / 1024 << " KB" << "\n"
+		      << "Compressed file size: " << (float)header.compressedSize / 1024 << " KB" << "\n"
 		      << "MD5 hash: " << header.hash << "\n";
 }

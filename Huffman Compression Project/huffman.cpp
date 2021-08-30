@@ -20,7 +20,7 @@ namespace huffman
 	{
 		std::shared_ptr<Node> buildTree(std::map<uint8_t, int> freqTable)
 		{
-			std::vector<std::shared_ptr<Node>> nodes;
+			std::vector<std::shared_ptr<Node> > nodes;
 
 			// Populate the nodes vector from the frequency table
 			for (auto& node : freqTable)
@@ -52,6 +52,37 @@ namespace huffman
 			nodeVec.erase(nodeVec.begin() + smallest);
 
 			return smallNode;
+		}
+
+		void progressBar(int &curPerc, int &prevPerc, int bytes, int fileLen)
+		{
+			curPerc = round(float(bytes) / float(fileLen) * 100);
+			
+			// Progress bar length is configurable.
+			const int barLen = 20;
+
+			// Only print of the percentage has changed.
+			if (curPerc != prevPerc)
+			{
+				// Progress bar will display like this:
+				// 	[######----]
+				// Calculate how many "#" to print.
+				int progBar = (float)curPerc / (100.0f / (float)barLen);
+				
+				std::cout << "[";
+				// Print "#"
+				for (int i = 0; i < progBar; i++)
+					std::cout << "#";
+				// Fill the rest of the bar with "-"
+				for (int j = barLen; j > progBar; j--)
+					std::cout << "-";
+
+				std::cout << "]";
+
+				// Print how many KB have been processed out of the total and carriage return.
+				std::cout << "\t" << bytes / 1024 << "/" << fileLen / 1024 << " KB\r";
+			}
+			prevPerc = curPerc;
 		}
 	}
 
@@ -115,12 +146,8 @@ namespace huffman
 			m_bytesProcessed++;
 
 			// Terminal output of compression percentage.
-			m_percentCompressed = round(float(m_bytesProcessed) / float(m_fileLen) * 100);
-			if (m_percentCompressed != m_prevPercent)
-			{
-				std::cout << "compressing... " << m_percentCompressed << "%\t\t" << m_bytesProcessed / 1024 << "/" << m_fileLen / 1024 << " KB\r";
-			}
-			m_prevPercent = m_percentCompressed;
+
+			progressBar(m_percentCompressed, m_prevPercent, m_bytesProcessed, m_fileLen);
 
 			// Write the binary code that corresponds to the current character. 
 			for (auto bit : m_binMap[character])
@@ -144,7 +171,7 @@ namespace huffman
 		// Only increments compressed size if the buffer contained any data.
 		if (m_buffer != 0) m_compressedSize += 1;
 
-		auto buffer = m_buffer << 8 - m_curBit;
+		auto buffer = m_buffer << (8 - m_curBit);
 		m_buffer = 0;
 		return buffer;
 	}
@@ -187,14 +214,8 @@ namespace huffman
 					{
 						// Add the leaf to the decoded string.
 						decodedData += m_curNode->character;
-
 						// Print the percentage to the terminal.
-						m_percentDecoded = round((float)m_curByte / (float)m_fileLen * 100);
-						if (m_percentDecoded != m_prevPercent)
-						{
-							std::cout << "decompressing... " << m_percentDecoded << "%\t\t" << m_curByte / 1024 << "/" << m_fileLen / 1024 << " KB\r";
-						}
-						m_prevPercent = m_percentDecoded;
+						progressBar(m_percentDecoded, m_prevPercent, m_curByte, m_fileLen);
 					}
 					// Reset the current node back to the root.
 					m_curNode = m_hTree;
