@@ -45,6 +45,8 @@ namespace huffman
 		std::shared_ptr<Node> buildTree(std::map<uint8_t, int> freqTable);
 		// Pops the smallest node from the vector.
 		std::shared_ptr<Node> getSmallest(std::vector<std::shared_ptr<Node>>& nodeVec);
+
+		void progressBar(int &curPerc, int &prevPerc, int bytes, int fileLen);
 	}
 
 	// Handles Huffman encoding
