@@ -118,7 +118,7 @@ namespace huffman
 			m_percentCompressed = round(float(m_bytesProcessed) / float(m_fileLen) * 100);
 			if (m_percentCompressed != m_prevPercent)
 			{
-				std::cout << "compressing... " << m_percentCompressed << "%\t\t" << m_bytesProcessed / 1024 << "/" << m_fileLen / 1024 << " KB\n";
+				std::cout << "compressing... " << m_percentCompressed << "%\t\t" << m_bytesProcessed / 1024 << "/" << m_fileLen / 1024 << " KB\r";
 			}
 			m_prevPercent = m_percentCompressed;
 
@@ -192,7 +192,7 @@ namespace huffman
 						m_percentDecoded = round((float)m_curByte / (float)m_fileLen * 100);
 						if (m_percentDecoded != m_prevPercent)
 						{
-							std::cout << "decompressing... " << m_percentDecoded << "%\t\t" << m_curByte / 1024 << "/" << m_fileLen / 1024 << " KB\n";
+							std::cout << "decompressing... " << m_percentDecoded << "%\t\t" << m_curByte / 1024 << "/" << m_fileLen / 1024 << " KB\r";
 						}
 						m_prevPercent = m_percentDecoded;
 					}

@@ -2,6 +2,8 @@
 #include <iostream>
 #include <vector>
 #include <map>
+#include <cmath>
+#include <memory>
 
 /*
 Classes and functions for Huffman compression.

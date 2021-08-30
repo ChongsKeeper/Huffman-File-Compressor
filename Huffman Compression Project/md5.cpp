@@ -6,8 +6,14 @@
 
 #include "md5.h"
 
+
+// __APPLE__ checking added by Allan Nilsson
 #ifndef _MSC_VER
-#include <endian.h>
+  #ifdef __APPLE__
+    #include <machine/endian.h>
+  #else
+    #include <endian.h>
+  #endif
 #endif
 
 

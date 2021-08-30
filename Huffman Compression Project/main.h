@@ -2,21 +2,11 @@
 #include <iostream>
 #include <fstream>
 #include <map>
-#include <filesystem>
+#include <stdio.h>
 #include "huffman.h"
 #include "CLI11.hpp"
 #include "md5.h"
 
-/*
-This program is a command line based Huffman compressor. It was created as a portfolio piece for the SMU Guildhall Fall 2022 application.
-It uses two external resources: md5.h (and its associated .cpp file) by Stephan Brumme https://create.stephan-brumme.com/ and CLI11, a command line parser https://github.com/CLIUtils/CLI11
-
-Commands:
--d			Decompress
--o			Overwrite
--p, --path	Path for output
-
-*/
 
 
 struct FileVersion
@@ -73,15 +63,19 @@ void compress(std::string filename, std::string path);
 // It also feeds the MD5 hash generator. This isn't exactly related to the function as a whole, but it means the file only needs to be read twice.
 void createPrefix(std::ifstream& input, unsigned int fileLen, huffman::Encoder& encoder, MD5& md5);
 
-// Takes all of the neccesary data for decompression and writes it to the ouput.
-void writeHeader(std::ofstream& output, unsigned int fileLen, std::string filename, std::map<uint8_t, int> freqTable, MD5& md5);
+// Takes all of the neccesary data for decompression and writes it to the ouput. Returns the offset for compressed size.
+int writeHeader(std::ofstream& output, unsigned int fileLen, std::string filename, std::map<uint8_t, int> freqTable, MD5& md5);
 
 // The actuall compression of the file.
 void encodeFile(std::ifstream& input, unsigned int fileLen, std::ofstream& output, huffman::Encoder& encoder);
 
 // Includes constant checks for validity in the input file. If it makes it all the way through,
 // a final check against the MD5 hash will delete the newly written file if the hash doesn't match.
-void decompress(std::string filename, std::string path, bool overwriteFlag);
+void decompress(std::string filename, std::string path, bool overwriteFlag, bool keepFlag);
 
 // Returns a header object containing all of the header data.
 Header readHeader(std::ifstream& input);
+
+bool checkSig(std::ifstream &filename);
+
+void listContents(std::string filename);

@@ -1,29 +1,66 @@
 #include "main.h"
 
+/*
+This program is a command line based Huffman compressor. It was created as a portfolio piece for the SMU Guildhall Fall 2022 application.
+It uses two external resources: md5.h (and its associated .cpp file) by Stephan Brumme https://create.stephan-brumme.com/ and CLI11, a command line parser https://github.com/CLIUtils/CLI11
+
+Commands:
+            Filename
+-d			Decompress
+-o			Overwrite
+-p, --path	Path for output
+-k          Debug tool. Prevents the program from deleting unencoded files when the hash is incorrect
+-l          List the contents of a .huf file.
+
+*/
+
 int main(int argc, char** argv)
 {
+	// CLI app object that parses the command line.
 	CLI::App app{ "Huffman Compression algorithm" };
 
+	// Filename
 	std::string filename = "default";
 	app.add_option("filename", filename, "The name of the file to be compressed/decompressed")->check(CLI::ExistingFile);
+
+	//std::string outFilename = "";
+	//app.add_option("outFilename", outFilename, "The output file name");
 	
+	// Path: -p, --path        Specify output file path
 	std::string path = "";
 	app.add_option("-p, --path", path, "Optional. Specifies path that new file will be written to")->check(CLI::ExistingPath);
 
+	// Flags
+	// Decompress: -d
 	bool decompressFlag = false;
 	app.add_flag("-d", decompressFlag, "Include to decompress");
+
+	// Overwrite: -o
 	bool overwriteFlag = false;
 	app.add_flag("-o", overwriteFlag, "Include to overwrite existing file");
 
+	// Keep file if faulty. Used for debug purposes
+	bool keepFlag = false;
+	app.add_flag("-k", keepFlag, "Include to prevent bad files from being deleted on hash checking");
+
+	// List: -l                Lists contents of .huf file header.
+	bool listFlag = false;
+	app.add_flag("-l, --list", listFlag, "Include to list the contents of decompressed file");
+
+	// Macro that tells CLI to parse the command line.
 	CLI11_PARSE(app, argc, argv);
 
-	if (!decompressFlag)
+	if (listFlag)
 	{
-		compress(filename, path);
+		listContents(filename);
+	}
+	else if (decompressFlag)
+	{
+		decompress(filename, path, overwriteFlag, keepFlag);
 	}
 	else
 	{
-		decompress(filename, path, overwriteFlag);
+		compress(filename, path);
 	}
 	
 	return 0;
@@ -32,6 +69,7 @@ int main(int argc, char** argv)
 
 std::string replaceExtension(std::string filename)
 {
+	// If there is a "." in the last four characters, it replaces those characters with ".huf", otherwise appends ".huf".
 	auto extPos = filename.rfind('.');
 	int extLen = 4;
 	if (filename.size() - extLen <= extPos)
@@ -47,6 +85,7 @@ std::string replaceExtension(std::string filename)
 
 std::string removePath(const std::string& filename)
 {
+	// Find the last "/" and return the sub string following it. Return the full string if there wasn't a "/".
 	size_t pathDiv = filename.find_last_of('/');
 	if (pathDiv != std::string::npos)
 	{
@@ -72,26 +111,32 @@ void compress(std::string filename, std::string path)
 	huffman::Encoder encoder(fileLen);
 	MD5 md5;
 
+	// Create the frequency table and MD5 hash
 	createPrefix(input, fileLen, encoder, md5);
 	encoder.buildEncodingTree();
 
+	// Remove the path from the filename, if it has one, replace the extension on the output name and add the path for writing.
 	filename = removePath(filename);
 	std::string outFilename = path + replaceExtension(filename);
 	std::ofstream output(outFilename, std::ios::binary);
 
+	// Make sure output file created.
 	if (!output.good())
 	{
 		std::cerr << "ERROR: output file failed to create.\n";
 		return;
 	}
 
-	writeHeader(output, fileLen, filename, encoder.freqTable(), md5);
+	// Write the header and return the offset of the compressed size bytes.
+	int cmprSizeOffset = writeHeader(output, fileLen, filename, encoder.freqTable(), md5);
 
+	// Reset the head of the input stream and encode the whole thing.
 	input.seekg(0, input.beg);
 	encodeFile(input, fileLen, output, encoder);
 
+	// Write the compressed size to the saved location.
 	auto compressedSize = encoder.compressedSize();
-	output.seekp(42, output.beg); // 42 is the offset for compressedSize in the header.
+	output.seekp(cmprSizeOffset, output.beg);
 	output.write(reinterpret_cast<char*>(&compressedSize), sizeof(compressedSize));
 }
 
@@ -114,7 +159,7 @@ void createPrefix(std::ifstream& input, unsigned int fileLen, huffman::Encoder& 
 	}
 }
 
-void writeHeader(std::ofstream& output, unsigned int fileLen, std::string filename, std::map<uint8_t, int> freqTable, MD5& md5)
+int writeHeader(std::ofstream& output, unsigned int fileLen, std::string filename, std::map<uint8_t, int> freqTable, MD5& md5)
 {
 	/*
 	Header format:
@@ -138,9 +183,12 @@ void writeHeader(std::ofstream& output, unsigned int fileLen, std::string filena
 	// MD5 hashing to verify file integrity.
 	output.write(md5.getHash().data(), md5.getHash().size());
 
-	// Write the uncompressed file size and skip the bytes that will store the compressed file size.
+	// Write the uncompressed file size.
 	output.write(reinterpret_cast<char*>(&fileLen), sizeof(fileLen));
-	output.seekp(sizeof(fileLen), output.cur);
+
+	// Save the location of the compressed size bytes and skip them.
+	int cmprSizeOffset = output.tellp();
+	output.seekp(sizeof(cmprSizeOffset), output.cur);
 
 	// Write the original filename.
 	uint8_t fnsize = filename.size();
@@ -155,6 +203,9 @@ void writeHeader(std::ofstream& output, unsigned int fileLen, std::string filena
 		output.put(leaf.first);
 		output.write(reinterpret_cast<char*>(&leaf.second), sizeof(leaf.second));
 	}
+
+	// Return the compressed size byte location. This gets written after compression.
+	return cmprSizeOffset;
 }
 
 void encodeFile(std::ifstream& input, unsigned int fileLen, std::ofstream& output, huffman::Encoder& encoder)
@@ -162,6 +213,7 @@ void encodeFile(std::ifstream& input, unsigned int fileLen, std::ofstream& outpu
 	unsigned int curByte = 0;
 	std::string buffer;
 
+	// Feeds MAX_BUFFER size chunks of the input file to the encoder until it's done.
 	while (curByte < fileLen)
 	{
 		buffer.resize(fileLen - curByte > MAX_BUFFER ? MAX_BUFFER : fileLen - curByte);
@@ -169,16 +221,18 @@ void encodeFile(std::ifstream& input, unsigned int fileLen, std::ofstream& outpu
 		input.read(&buffer[0], buffer.size());
 		curByte += buffer.size();
 
+		// encode() overwrites the buffer. Write the encoded string to the output.
 		encoder.encode(buffer);
 		output.write(buffer.data(), buffer.size());
 	}
 
+	// Retrieve remaining bits from the buffer and write to the output.
 	buffer = encoder.getBuffer();
 	output.write(buffer.data(), buffer.size());
 }
 
 
-void decompress(std::string filename, std::string path, bool overwriteFlag)
+void decompress(std::string filename, std::string path, bool overwriteFlag, bool keepFlag)
 {
 	// create the File Stream and check that it is a valid file.
 	std::ifstream input(filename, std::ios::binary);
@@ -189,17 +243,9 @@ void decompress(std::string filename, std::string path, bool overwriteFlag)
 	}
 
 	// Check that the file has the correct signature. If it wasn't compressed by this program the signauture will be missing.
-	std::string signature;
-	signature.resize(4);
-	input.read(reinterpret_cast<char*>(&signature[0]), signature.size());
+	if (!checkSig(input)) return;
 
-	if (signature != uniqueSig)
-	{
-		std::cerr << "ERROR: Invalid file.\n";
-		return;
-	}
-
-	auto header = readHeader(input);
+	Header header = readHeader(input);
 
 	// Check if the file version is correct
 	if (header.fileVersion.major != curFileVersion.major || header.fileVersion.minor != curFileVersion.minor)
@@ -215,31 +261,29 @@ void decompress(std::string filename, std::string path, bool overwriteFlag)
 		return;
 	}
 
+	// The name of the output file with the path to write to.
+	std::string outputName = path + header.filename;
+
 	//  Check if the file already exists to prevent overwriting.
-	if (!overwriteFlag)
+	std::ofstream output(outputName, std::ios::binary);
+	if (output.good())
 	{
-		std::ifstream tempStream(header.filename);
-		if (tempStream.good())
+		if (!overwriteFlag)
 		{
 			std::cout << "File already exists. Add -o to command line to overwrite.\n";
 			return;
 		}
-		tempStream.close();
 	}
-	
-	std::string outfile = path + header.filename;
-
-	huffman::Decoder decoder(header.freqTable, header.fileSize);
-	std::ofstream output(outfile, std::ios::binary);
-
-	if (!output.good())
+	else
 	{
-		std::cerr << "ERROR: Unable to open output file.\n";
 		return;
 	}
 
 	// MD5 hashing to verify the integrity of the file.
 	MD5 md5;
+
+	// Create a decoder object. It generates the Huffman tree from the frequency table. fileSize tells it when to stop.
+	huffman::Decoder decoder(header.freqTable, header.fileSize);
 
 	// Read the file in chunks and write it to the output file. Also generates the MD5 hash.
 	std::string buffer;
@@ -260,25 +304,23 @@ void decompress(std::string filename, std::string path, bool overwriteFlag)
 	{
 		output.close();
 		std::cerr << "Corruption ERROR: New hash does not match saved hash\n";
-		try
+		
+		if (keepFlag)
 		{
-			if (std::filesystem::remove(header.filename))
-			{
-				std::cout << header.filename << " was deleted.\n";
-			}
-			else
-			{
-				std::cout << header.filename << " could not be deleted.\n";
-			}
+			"Keeping bad file.\n";
 		}
-		catch (const std::filesystem::filesystem_error& err)
+		else if (std::remove(outputName.c_str()))
 		{
-			std::cerr << "filesystem error: " << err.what() << '\n';
+			std::cout << outputName << " was deleted.\n";
+		}
+		else
+		{
+			std::cout << outputName << " could not be deleted.\n";
 		}
 	}
 	else
 	{
-		std::cout << "File decompressed successfully.";
+		std::cout << "\nFile decompressed successfully.\n";
 	}
 }
 
@@ -308,26 +350,56 @@ Header readHeader(std::ifstream& input)
 	header.hash.resize(32);
 	input.read(&header.hash[0], header.hash.size());
 
-	input.read(reinterpret_cast<char*>(&header.fileSize), 4);
-	input.read(reinterpret_cast<char*>(&header.compressedSize), 4);
+	input.read(reinterpret_cast<char*>(&header.fileSize), sizeof(header.fileSize));
+	input.read(reinterpret_cast<char*>(&header.compressedSize), sizeof(header.compressedSize));
 	
 	uint8_t nameLen;
-	input.read(reinterpret_cast<char*>(&nameLen), 1);
+	input.read(reinterpret_cast<char*>(&nameLen), sizeof(nameLen));
 	header.filename.resize(nameLen);
 	input.read(&header.filename[0], header.filename.size());
 
 	uint8_t freqTableSize = 0;
-	input.read(reinterpret_cast<char*>(&freqTableSize), 1);
+	input.read(reinterpret_cast<char*>(&freqTableSize), sizeof(freqTableSize));
 
 	for (unsigned int i = 0; i < freqTableSize; i++)
 	{
 		char key;
 		input.get(key);
 		int value;
-		input.read(reinterpret_cast<char*>(&value), 4);
+		input.read(reinterpret_cast<char*>(&value),sizeof(value));
 
 		header.freqTable[key] = value;
 	}
 
 	return header;
+}
+
+bool checkSig(std::ifstream& input)
+{
+	std::string signature;
+	signature.resize(uniqueSig.size());
+	input.read(reinterpret_cast<char*>(&signature[0]), signature.size());
+
+	if (signature != uniqueSig)
+	{
+		std::cerr << "ERROR: Invalid file.\n";
+		return false;
+	}
+
+	return true;
+}
+
+void listContents(std::string filename)
+{
+	std::ifstream input(filename);
+
+	if (!checkSig(input)) return;
+
+	Header header = readHeader(input);
+
+	std::cout << "Huffman Compression version: " << static_cast<unsigned int>(header.fileVersion.major) << "." << static_cast<unsigned int>(header.fileVersion.minor) << "\n"
+		      << "Original file name: " << header.filename << "\n"
+		      << "Original file size: " << (float)header.fileSize / 1000 << " KB" << "\n"
+		      << "Compressed file size: " << (float)header.compressedSize / 1000 << " KB" << "\n"
+		      << "MD5 hash: " << header.hash << "\n";
 }
