@@ -137,7 +137,7 @@ void compress(std::string filename, std::string path)
 	// Write the compressed size to the saved location.
 	auto compressedSize = encoder.compressedSize();
 	output.seekp(cmprSizeOffset, output.beg);
-	output.write(reinterpret_cast<char*>(&compressedSize), sizeof(compressedSize));
+	writeInt(output, compressedSize);
 	std::cout << "\n";
 }
 
@@ -173,7 +173,7 @@ int writeHeader(std::ofstream& output, unsigned int fileLen, std::string filenam
 	46		1		filename length (n)
 	47		n		filename
 	47+n	1		freqTable size (f)
-	48+n	f*5		freqTable
+	48+n	(1+4)*f freqTable
 	*/
 
 	// Unique identifer and version number to prevent running the code on incorrectly formatted files when decompressing.
@@ -185,10 +185,10 @@ int writeHeader(std::ofstream& output, unsigned int fileLen, std::string filenam
 	output.write(md5.getHash().data(), md5.getHash().size());
 
 	// Write the uncompressed file size.
-	output.write(reinterpret_cast<char*>(&fileLen), sizeof(fileLen));
+	writeInt(output, fileLen);
 
 	// Save the location of the compressed size bytes and skip them.
-	int cmprSizeOffset = output.tellp();
+	uint32_t cmprSizeOffset = output.tellp();
 	output.seekp(sizeof(cmprSizeOffset), output.cur);
 
 	// Write the original filename.
@@ -202,7 +202,7 @@ int writeHeader(std::ofstream& output, unsigned int fileLen, std::string filenam
 	for (auto& leaf : freqTable)
 	{
 		output.put(leaf.first);
-		output.write(reinterpret_cast<char*>(&leaf.second), sizeof(leaf.second));
+		writeInt(output, leaf.second);
 	}
 
 	// Return the compressed size byte location. This gets written after compression.
@@ -308,6 +308,7 @@ void decompress(std::string filename, std::string path, bool overwriteFlag, bool
 	{
 		output.close();
 		std::cerr << "Corruption ERROR: New hash does not match saved hash\n";
+		std::cout << md5.getHash();
 		
 		if (keepFlag)
 		{
@@ -354,8 +355,8 @@ Header readHeader(std::ifstream& input)
 	header.hash.resize(32);
 	input.read(&header.hash[0], header.hash.size());
 
-	input.read(reinterpret_cast<char*>(&header.fileSize), sizeof(header.fileSize));
-	input.read(reinterpret_cast<char*>(&header.compressedSize), sizeof(header.compressedSize));
+	header.fileSize = readInt(input);
+	header.compressedSize = readInt(input);
 	
 	uint8_t nameLen;
 	input.read(reinterpret_cast<char*>(&nameLen), sizeof(nameLen));
@@ -369,8 +370,7 @@ Header readHeader(std::ifstream& input)
 	{
 		char key;
 		input.get(key);
-		int value;
-		input.read(reinterpret_cast<char*>(&value),sizeof(value));
+		int value = readInt(input);
 
 		header.freqTable[key] = value;
 	}
@@ -402,8 +402,48 @@ void listContents(std::string filename)
 	Header header = readHeader(input);
 
 	std::cout << "Huffman Compression version: " << static_cast<unsigned int>(header.fileVersion.major) << "." << static_cast<unsigned int>(header.fileVersion.minor) << "\n"
-		      << "Original file name: " << header.filename << "\n"
-		      << "Original file size: " << (float)header.fileSize / 1024 << " KB" << "\n"
-		      << "Compressed file size: " << (float)header.compressedSize / 1024 << " KB" << "\n"
-		      << "MD5 hash: " << header.hash << "\n";
+		      << "Original file name:          " << header.filename << "\n"
+		      << "Original file size:          " << (float)header.fileSize / 1024 << " KB" << "\n"
+		      << "Compressed file size:        " << (float)header.compressedSize / 1024 << " KB" << "\n"
+		      << "MD5 hash:                    " << header.hash << "\n";
+}
+
+bool writeInt(std::ofstream &output, uint32_t num)
+{
+	// Write a 4 byte integer in Big Endian
+
+	uint8_t data[4]{};
+
+	// Bit shifts convert local Endianess to Big Endian
+	data[0] = num >> 24;
+	data[1] = num >> 16;
+	data[2] = num >> 8;
+	data[3] = num >> 0;
+
+	for (int i = 0; i < 4; i++)
+	{
+		output.write(reinterpret_cast<char*>(&data[i]), sizeof(data[i]));
+	}
+
+	return true;
+}
+
+uint32_t readInt(std::ifstream& input)
+{
+	// Read a 4 byte integer in Big Endian
+
+	uint8_t data[4]{};
+
+	for (int i = 0; i < 4; i++)
+	{
+		input.read(reinterpret_cast<char*>(&data[i]), sizeof(data[i]));
+	}
+
+	// Bit shifts read a Big Endian byte order and convert it to local Endianess
+	uint32_t num = (data[3] << 0)
+		         | (data[2] << 8)
+		         | (data[1] << 16)
+		         | (data[0] << 24);
+
+	return num;
 }

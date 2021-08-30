@@ -39,7 +39,7 @@ constexpr unsigned int MAX_BUFFER = 8192;
 
 // The current version of the compression program. Useful for confirming which version 
 // of this program wrote the compressed file so it can be handled correctly.
-constexpr FileVersion curFileVersion = {1,0};
+constexpr FileVersion curFileVersion = {1,1};
 
 // A unique byte set that is placed at the start of a compressed file. This is the first thing checked when decompressing a file.
 const std::string uniqueSig = "ANHC";
@@ -79,3 +79,7 @@ Header readHeader(std::ifstream& input);
 bool checkSig(std::ifstream &filename);
 
 void listContents(std::string filename);
+
+// Integer functions for reading and writing to the file in Big Endian
+bool writeInt(std::ofstream &output, uint32_t num);
+uint32_t readInt(std::ifstream& input);

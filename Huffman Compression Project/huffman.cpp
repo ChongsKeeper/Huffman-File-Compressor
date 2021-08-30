@@ -31,7 +31,9 @@ namespace huffman
 			// Keep making a new Node as the parent of the two smallest nodes in the tree until there is only one Node left in the vector.
 			while (nodes.size() > 1)
 			{
-				nodes.push_back(std::make_shared<Node>(getSmallest(nodes), getSmallest(nodes)));
+				auto left = getSmallest(nodes);
+				auto right = getSmallest(nodes);
+				nodes.push_back(std::make_shared<Node>(left, right));
 			}
 
 			return nodes[0];
@@ -123,6 +125,16 @@ namespace huffman
 		if (curNode->character != NOT_A_CHAR)
 		{
 			m_binMap[curNode->character] = path;
+
+			// Debug code to print the path to each character
+			
+			//std::cout << curNode->character << " : ";
+			//for (auto bit : path)
+			//{
+			//	std::cout << bit;
+			//}
+			//std::cout << "\n";
+
 			return;
 		}
 
@@ -176,12 +188,12 @@ namespace huffman
 		return buffer;
 	}
 
-	std::map<uint8_t, int> Encoder::freqTable()
+	const std::map<uint8_t, int> Encoder::freqTable()
 	{
 		return m_freqTable;
 	}
 
-	int Encoder::compressedSize()
+	const int Encoder::compressedSize()
 	{
 		return m_compressedSize;
 	}

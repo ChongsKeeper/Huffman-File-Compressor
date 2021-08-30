@@ -69,10 +69,10 @@ namespace huffman
 		uint8_t getBuffer();
 
 		// getter method for m_freqTable
-		std::map<uint8_t, int> freqTable();
+		const std::map<uint8_t, int> freqTable();
 
 		// getter method for m_compressedSize
-		int compressedSize();
+		const int compressedSize();
 
 	private:
 		// Table of the frequency with which each byte in the input occurs.
@@ -87,9 +87,9 @@ namespace huffman
 		// Buffer for storing leftover bits after each encode() call
 		uint8_t m_buffer;
 		int m_curBit;
-		int m_compressedSize;
-		int m_fileLen;
 		int m_bytesProcessed;
+		int m_fileLen;
+		int m_compressedSize;
 
 		// Used to output progress
 		int m_percentCompressed;
