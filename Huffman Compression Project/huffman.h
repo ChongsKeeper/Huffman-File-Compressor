@@ -20,111 +20,112 @@ typedef std::vector<bool> bitVector;
 
 namespace huffman
 {
-	// Constant used in branch nodes as a non-character.
-	constexpr unsigned int NOT_A_CHAR = 256;
+    // Constant used in branch nodes as a non-character.
+    constexpr unsigned int NOT_A_CHAR = 256;
 
-	struct Node
-	{
-		std::shared_ptr<Node> left;
-		std::shared_ptr<Node> right;
+    struct Node
+    {
+        std::shared_ptr<Node> left;
+        std::shared_ptr<Node> right;
 
-		int freq;
-		int character;
+        int freq;
+        int character;
 
-		// Construct a branch Node.
-		Node(std::shared_ptr<Node> _left, std::shared_ptr<Node> _right);
+        // Construct a branch Node.
+        Node(std::shared_ptr<Node> _left, std::shared_ptr<Node> _right);
 
-		// Construct a leaf Node.
-		Node(int _character, int _freq);
-	};
-	
-	// Anonymous namespace to hide these two functions from the rest of the program.
-	namespace
-	{
-		// Builds a Huffman tree from a frequency table. Needed for both the Encoder and the Decoder.
-		std::shared_ptr<Node> buildTree(std::map<uint8_t, int> freqTable);
-		// Pops the smallest node from the vector.
-		std::shared_ptr<Node> getSmallest(std::vector<std::shared_ptr<Node>>& nodeVec);
+        // Construct a leaf Node.
+        Node(int _character, int _freq);
+    };
 
-		void progressBar(int &curPerc, int &prevPerc, int bytes, int fileLen);
-	}
+    // Anonymous namespace to hide these two functions from the rest of the program.
+    namespace
+    {
+        // Builds a Huffman tree from a frequency table. Needed for both the Encoder and the Decoder.
+        std::shared_ptr<Node> buildTree(std::map<uint8_t, int> freqTable);
+        // Pops the smallest node from the vector.
+        std::shared_ptr<Node> popSmallest(std::vector<std::shared_ptr<Node>>& nodeVec);
 
-	// Handles Huffman encoding
-	class Encoder
-	{
-	public:
-		// fileLen is used for progress output.
-		Encoder(unsigned int fileLen);
+        void progressBar(int& curPerc, int& prevPerc, int bytes, int fileLen);
+    }
 
-		// Can be called in mutliple times. Adds every character in the input string to the frequency table.
-		void buildFreqTable(std::string input);
+    // Handles Huffman encoding
+    class Encoder
+    {
+    public:
+        // fileLen is used for progress output.
+        Encoder(unsigned int fileLen);
 
-		// Uses the frequency table to build the Huffman Tree.
-		void buildEncodingTree();
+        // Can be called in mutliple times. Adds every character in the input string to the frequency table.
+        void buildFreqTable(std::string input);
 
-		// Overwrites the input string. Used to encode in chunks and writes leftover bits to the buffer.
-		void encode(std::string& data);
+        // Uses the frequency table to build the Huffman Tree.
+        void buildEncodingTree();
 
-		// Returns the remaing bits.
-		uint8_t getBuffer();
+        // Overwrites the input string. Used to encode in chunks and writes leftover bits to the buffer.
+        void encode(std::string& data);
 
-		// getter method for m_freqTable
-		std::map<uint8_t, uint32_t> freqTable();
+        // Returns the remaing bits.
+        uint8_t getBuffer();
 
-		// getter method for m_compressedSize
-		int compressedSize();
+        // getter method for m_freqTable
+        std::map<uint8_t, uint32_t> freqTable();
 
-	private:
-		// Table of the frequency with which each byte in the input occurs.
-		std::map<uint8_t, uint32_t> m_freqTable;
+        // getter method for m_compressedSize
+        int compressedSize();
 
-		// The path to each leaf in the tree.
-		std::map<uint8_t, bitVector> m_binMap;
+    private:
+        // Table of the frequency with which each byte in the input occurs.
+        std::map<uint8_t, uint32_t> m_freqTable;
 
-		// The root Node of the Huffman tree
-		std::shared_ptr<Node> m_huffmanTree;
+        // The path to each leaf in the tree.
+        std::map<uint8_t, bitVector> m_binMap;
 
-		// Buffer for storing leftover bits after each encode() call
-		uint8_t m_buffer;
-		int m_curBit;
-		int m_bytesProcessed;
-		int m_fileLen;
-		int m_compressedSize;
+        // The root Node of the Huffman tree
+        std::shared_ptr<Node> m_huffmanTree;
 
-		// Used to output progress
-		int m_percentCompressed;
-		int m_prevPercent;
+        // Buffer for storing leftover bits after each encode() call
+        uint8_t m_buffer;
 
-		// Called by buildEncodingTree() as there is no situation that doesn't require this to be called following that step.
-		void buildBinMap(std::shared_ptr<Node>& curNode, bitVector& path);
-	};
+        int m_curBit;
+        int m_bytesProcessed;
+        int m_fileLen;
+        int m_compressedSize;
 
-	// Handles Huffman decoding
-	class Decoder
-	{
-	public:
-		Decoder(std::map<uint8_t, uint32_t> freqTable, int fileLen);
+        // Used to output progress
+        int m_percentCompressed;
+        int m_prevPercent;
 
-		// Overwrites input string. Used to decode in chunks.
-		void decode(std::string& input);
+        // Called by buildEncodingTree() as there is no situation that doesn't require this to be called following that step.
+        void buildBinMap(std::shared_ptr<Node>& curNode, bitVector& path);
+    };
 
-		// Returns true when the decoder has processed bytes equal to the file length.
-		bool done();
+    // Handles Huffman decoding
+    class Decoder
+    {
+    public:
+        Decoder(std::map<uint8_t, uint32_t> freqTable, int fileLen);
 
-	private:
-		// The root node of the huffman tree
-		std::shared_ptr<huffman::Node> m_hTree; 
+        // Overwrites input string. Used to decode in chunks.
+        void decode(std::string& input);
 
-		// Stores the current node during and between decode() calls
-		std::shared_ptr<huffman::Node> m_curNode;
+        // Returns true when the decoder has processed bytes equal to the file length.
+        bool done();
 
-		int m_curByte;
-		int m_fileLen;
+    private:
+        // The root node of the huffman tree
+        std::shared_ptr<huffman::Node> m_hTree;
 
-		// Used to print the percentage of the file decompressed.
-		int m_percentDecoded;
-		int m_prevPercent;
-	};
+        // Stores the current node during and between decode() calls
+        std::shared_ptr<huffman::Node> m_curNode;
+
+        int m_curByte;
+        int m_fileLen;
+
+        // Used to print the percentage of the file decompressed.
+        int m_percentDecoded;
+        int m_prevPercent;
+    };
 }
 
 

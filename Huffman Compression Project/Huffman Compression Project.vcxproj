@@ -146,13 +146,13 @@
   <ItemGroup>
     <ClCompile Include="huffman.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="md5.cpp" />
+    <ClCompile Include="ThirdParty\md5.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="CLI11.hpp" />
+    <ClInclude Include="ThirdParty\CLI11.hpp" />
     <ClInclude Include="huffman.h" />
     <ClInclude Include="main.h" />
-    <ClInclude Include="md5.h" />
+    <ClInclude Include="ThirdParty\md5.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

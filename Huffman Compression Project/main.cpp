@@ -5,7 +5,7 @@ This program is a command line based Huffman compressor. It was created as a por
 It uses two external resources: md5.h (and its associated .cpp file) by Stephan Brumme https://create.stephan-brumme.com/ and CLI11, a command line parser https://github.com/CLIUtils/CLI11
 
 Commands:
-            Filename
+			Filename
 -d			Decompress
 -o			Overwrite
 -p, --path	Path for output
@@ -23,9 +23,7 @@ int main(int argc, char** argv)
 	std::string filename = "default";
 	app.add_option("filename", filename, "The name of the file to be compressed/decompressed")->check(CLI::ExistingFile);
 
-	//std::string outFilename = "";
-	//app.add_option("outFilename", outFilename, "The output file name");
-	
+
 	// Path: -p, --path        Specify output file path
 	std::string path = "";
 	app.add_option("-p, --path", path, "Optional. Specifies path that new file will be written to")->check(CLI::ExistingPath);
@@ -50,6 +48,10 @@ int main(int argc, char** argv)
 	// Macro that tells CLI to parse the command line.
 	CLI11_PARSE(app, argc, argv);
 
+	// path needs to end with a slash when a filename is appended to it
+	if (!path.empty())
+		pathEndSlash(path);
+
 	if (listFlag)
 	{
 		listContents(filename);
@@ -62,38 +64,9 @@ int main(int argc, char** argv)
 	{
 		compress(filename, path);
 	}
-	
+
 	return 0;
 }
-
-
-std::string replaceExtension(std::string filename)
-{
-	// If there is a "." in the last four characters, it replaces those characters with ".huf", otherwise appends ".huf".
-	auto extPos = filename.rfind('.');
-	int extLen = 4;
-	if (filename.size() - extLen <= extPos)
-	{
-		filename.replace(extPos, extLen, ".huf");
-	}
-	else
-	{
-		filename += ".huf";
-	}
-	return filename;
-}
-
-std::string removePath(const std::string& filename)
-{
-	// Find the last "/" and return the sub string following it. Return the full string if there wasn't a "/".
-	size_t pathDiv = filename.find_last_of('/');
-	if (pathDiv != std::string::npos)
-	{
-		return filename.substr(pathDiv + 1);
-	}
-	return filename;
-}
-
 
 void compress(std::string filename, std::string path)
 {
@@ -164,6 +137,7 @@ int writeHeader(std::ofstream& output, unsigned int fileLen, std::string filenam
 {
 	/*
 	Header format:
+
 	offset	bytes	description
 	0		4		uniqueSig
 	4		2		version
@@ -176,7 +150,7 @@ int writeHeader(std::ofstream& output, unsigned int fileLen, std::string filenam
 	51+n	(1+4)*f freqTable
 	*/
 
-	// Unique identifer and version number to prevent running the code on incorrectly formatted files when decompressing.
+	// Unique identifier and version number to prevent running the code on incorrectly formatted files when decompressing.
 	output.write(uniqueSig.data(), uniqueSig.size());
 	output.put(curFileVersion.major);
 	output.put(curFileVersion.minor);
@@ -240,11 +214,11 @@ void decompress(std::string filename, std::string path, bool overwriteFlag, bool
 	std::ifstream input(filename, std::ios::binary);
 	if (!input.good())
 	{
-		std::cerr << "ERROR: File \" " << filename << " \"was not able to be opened.\n";
+		std::cerr << "ERROR: File \"" << filename << "\"was not able to be opened.\n";
 		return;
 	}
 
-	// Check that the file has the correct signature. If it wasn't compressed by this program the signauture will be missing.
+	// Check that the file has the correct signature. If it wasn't compressed by this program the signature will be missing.
 	if (!checkSig(input)) return;
 
 	Header header = readHeader(input);
@@ -299,7 +273,7 @@ void decompress(std::string filename, std::string path, bool overwriteFlag, bool
 		input.read(&buffer[0], buffer.size());
 
 		decoder.decode(buffer);
-		
+
 		md5.add(buffer.data(), buffer.size());
 
 		output.write(buffer.data(), buffer.size());
@@ -311,7 +285,7 @@ void decompress(std::string filename, std::string path, bool overwriteFlag, bool
 		output.close();
 		std::cerr << "Corruption ERROR: New hash does not match saved hash\n";
 		std::cout << md5.getHash();
-		
+
 		if (keepFlag)
 		{
 			std::cout << "Keeping bad file.\n";
@@ -361,7 +335,7 @@ Header readHeader(std::ifstream& input)
 
 	header.fileSize = readInt(input);
 	header.compressedSize = readInt(input);
-	
+
 	// Filename
 	uint8_t nameLen;
 	input.read(reinterpret_cast<char*>(&nameLen), sizeof(nameLen));
@@ -407,19 +381,58 @@ void listContents(std::string filename)
 	Header header = readHeader(input);
 
 	std::cout << "Huffman Compression version: " << static_cast<unsigned int>(header.fileVersion.major) << "." << static_cast<unsigned int>(header.fileVersion.minor) << "\n"
-		      << "Original file name:          " << header.filename << "\n"
-		      << "Original file size:          " << (float)header.fileSize / 1024 << " KB" << "\n"
-		      << "Compressed file size:        " << (float)header.compressedSize / 1024 << " KB" << "\n"
-		      << "MD5 hash:                    " << header.hash << "\n";
+		<< "Original file name:          " << header.filename << "\n"
+		<< "Original file size:          " << (float)header.fileSize / 1024 << " KB" << "\n"
+		<< "Compressed file size:        " << (float)header.compressedSize / 1024 << " KB" << "\n"
+		<< "MD5 hash:                    " << header.hash << "\n";
 }
 
-bool writeInt(std::ofstream &output, uint32_t num)
+
+
+std::string replaceExtension(std::string filename)
+{
+	// If there is a "." in the last four characters, it replaces those characters with ".huf", otherwise appends ".huf".
+	auto extPos = filename.rfind('.');
+	const int extLen = 4;
+	if (filename.size() - extLen <= extPos)
+	{
+		filename.replace(extPos, extLen, ".huf");
+	}
+	else
+	{
+		filename += ".huf";
+	}
+	return filename;
+}
+
+std::string removePath(const std::string& filename)
+{
+	// Find the last "/" and return the sub string following it. Return the full string if there wasn't a "/".
+	size_t pathDiv = filename.find_last_of('/');
+	if (pathDiv != std::string::npos)
+	{
+		return filename.substr(pathDiv + 1);
+	}
+	return filename;
+}
+
+void pathEndSlash(std::string& path)
+{
+	if (path.back() != '\\' || path.back() != '/')
+	{
+		path += '/';
+	}
+}
+
+
+
+bool writeInt(std::ofstream& output, uint32_t num)
 {
 	// Write a 4 byte integer in Big Endian
 
 	uint8_t data[4]{};
 
-	// Bit shifts convert local Endianess to Big Endian
+	// Bit shifts convert from local byte order to Big Endian
 	data[0] = num >> 24;
 	data[1] = num >> 16;
 	data[2] = num >> 8;
@@ -444,11 +457,11 @@ uint32_t readInt(std::ifstream& input)
 		input.read(reinterpret_cast<char*>(&data[i]), sizeof(data[i]));
 	}
 
-	// Bit shifts read a Big Endian byte order and convert it to local Endianess
+	// Bit shifts convert Big Endian to local byte order
 	uint32_t num = (data[3] << 0)
-		         | (data[2] << 8)
-		         | (data[1] << 16)
-		         | (data[0] << 24);
+		| (data[2] << 8)
+		| (data[1] << 16)
+		| (data[0] << 24);
 
 	return num;
 }
